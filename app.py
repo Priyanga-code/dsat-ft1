@@ -99,8 +99,11 @@ def setup_webhook():
 # =========================
 # Telegram Webhook Handler
 # =========================
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["GET", "POST"])
 def telegram_webhook():
+    if request.method == "GET":
+        return "Telegram webhook endpoint. Use POST to send updates.", 200
+
     data = request.get_json()
 
     if not data or "message" not in data:
@@ -116,14 +119,14 @@ def telegram_webhook():
     )
     reply_text = response.choices[0].message.content
 
-    # Send reply to Telegram
     telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(telegram_url, json={
         "chat_id": chat_id,
         "text": reply_text
     })
 
-    return "OK", 200  # ✅ Important: Always return 200 to Telegram
+    return "OK", 200
+
 
 # =========================
 # Run the app
