@@ -3,12 +3,16 @@ import joblib
 from groq import Groq
 import os
 import requests
+import logging
 
 # ✅ Load environment variables
 os.environ['GROQ_API_KEY'] = os.getenv("groq")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 app = Flask(__name__)
+
+# Set logger level to INFO so we can see debug info in console
+app.logger.setLevel(logging.INFO)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -97,7 +101,7 @@ def setup_webhook():
     return render_template("telegram.html", status=status)
 
 # =========================
-# Telegram Webhook Handler
+# Telegram Webhook Handler with logging
 # =========================
 @app.route("/webhook", methods=["GET", "POST"])
 def telegram_webhook():
@@ -105,12 +109,18 @@ def telegram_webhook():
         return "Telegram webhook endpoint. Use POST to send updates.", 200
 
     data = request.get_json()
+    app.logger.info(f"Received webhook data: {data}")
 
     if not data or "message" not in data:
+        app.logger.warning("No valid data or no message field in webhook payload")
         return "No valid data", 400
 
     chat_id = data["message"]["chat"]["id"]
     user_text = data["message"].get("text", "")
+
+    if not user_text:
+        app.logger.info("Received message with no text content")
+        return "No text message", 200
 
     client = Groq()
     response = client.chat.completions.create(
@@ -120,10 +130,15 @@ def telegram_webhook():
     reply_text = response.choices[0].message.content
 
     telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    requests.post(telegram_url, json={
+    resp = requests.post(telegram_url, json={
         "chat_id": chat_id,
         "text": reply_text
     })
+
+    if resp.ok:
+        app.logger.info(f"Sent reply to chat_id {chat_id}")
+    else:
+        app.logger.error(f"Failed to send reply to chat_id {chat_id}: {resp.status_code} {resp.text}")
 
     return "OK", 200
 
