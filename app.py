@@ -68,32 +68,59 @@ def prediction():
 # =========================
 # Telegram Route
 # =========================
-@app.route("/telegram", methods=["GET", "POST"])
-def telegram():
-    # Replace with your actual bot username
+@app.route("/telegram", methods=["GET"])
+def telegram_info():
+    # This route shows a link to the bot
     bot_link = "https://t.me/dsai_trial_bot"
     return render_template("telegram.html", bot_link=bot_link)
 
-    @app.route("/telegram",methods=["GET","POST"])
-def telegram():
+# =========================
+# Telegram Webhook Setup
+# =========================
+@app.route("/setup_webhook", methods=["GET"])
+def setup_webhook():
+    domain_url = 'https://dsat-ft1-z7w5.onrender.com'
+    delete_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook"
+    set_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={domain_url}/webhook"
 
-    domain_url = 'https://dsat-ft1-z7w5.onrender.com/'
+    # Remove existing webhook
+    requests.post(delete_url, json={"drop_pending_updates": True})
 
-    # The following line is used to delete the existing webhook URL for the Telegram bot
-    delete_webhook_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook"
-    requests.post(delete_webhook_url, json={"url": domain_url, "drop_pending_updates": True})
-
-    # Set the webhook URL for the Telegram bot
-    set_webhook_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={domain_url}/webhook"
-    webhook_response = requests.post(set_webhook_url, json={"url": domain_url, "drop_pending_updates": True})
-
-    if webhook_response.status_code == 200:
-        # set status message
-        status = "The telegram bot is running. Please check with the telegram bot. @your_bot"
+    # Set new webhook
+    response = requests.get(set_url)
+    if response.status_code == 200:
+        status = "✅ Telegram bot is connected. Try messaging the bot."
     else:
-        status = "Failed to start the telegram bot. Please check the logs."
-    
-    return(render_template("telegram.html", status=status))
+        status = "❌ Failed to connect the Telegram bot."
+
+    return render_template("telegram.html", status=status)
+
+# =========================
+# Telegram Webhook Endpoint
+# =========================
+@app.route("/webhook", methods=["POST"])
+def telegram_webhook():
+    data = request.get_json()
+
+    if not data or "message" not in data:
+        return "No valid data", 400
+
+    chat_id = data["message"]["chat"]["id"]
+    user_text = data["message"].get("text", "")
+
+    client = Groq()
+    response = client.chat.completions.create(
+        model="deepseek-r1-distill-llama-70b",
+        messages=[{"role": "user", "content": user_text}]
+    )
+    reply_text = response.choices[0].message.content
+
+    # Send reply back to Telegram
+    telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    requests.post(telegram_url, json={
+        "chat_id": chat_id,
+        "text": reply_text
+    })
 
 if __name__ == "__main__":
     # Keep host open for Render, fallback port 5000 for local
