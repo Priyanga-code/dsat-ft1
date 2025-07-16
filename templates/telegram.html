@@ -1,18 +1,15 @@
-<!DOCTYPE html>
-<html>
 <head>
-    <title>Telegram Bot</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static',
+        filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
-        <h2>Telegram Bot</h2>
-        <p>Click below to open the bot on Telegram:</p>
-        <a href="{{ bot_link }}" target="_blank">
-            <button>Open Telegram Bot</button>
-        </a>
-        <br><br>
-        <a href="/main"><button>Back to Main</button></a>
+        <h2>Chatbot in Telegram</h2>
+        <h4>{{status}}</h4>
+        <form action="/main" method="post">         
+            <input type="submit" value="Main">
+        </form>
     </div>
 </body>
-</html>
