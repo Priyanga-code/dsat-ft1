@@ -4,8 +4,9 @@ from groq import Groq
 import os
 import requests
 
-# ✅ Load Groq API key from environment
+# ✅ Load environment variables
 os.environ['GROQ_API_KEY'] = os.getenv("groq")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 app = Flask(__name__)
 
@@ -67,11 +68,10 @@ def prediction():
     return render_template("prediction.html", r=pred)
 
 # =========================
-# Telegram Route
+# Telegram Info Page
 # =========================
 @app.route("/telegram", methods=["GET"])
 def telegram_info():
-    # This route shows a link to the bot
     bot_link = "https://t.me/dsai_trial_bot"
     return render_template("telegram.html", bot_link=bot_link)
 
@@ -84,7 +84,7 @@ def setup_webhook():
     delete_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook"
     set_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={domain_url}/webhook"
 
-    # Remove existing webhook
+    # Delete previous webhook
     requests.post(delete_url, json={"drop_pending_updates": True})
 
     # Set new webhook
@@ -97,7 +97,7 @@ def setup_webhook():
     return render_template("telegram.html", status=status)
 
 # =========================
-# Telegram Webhook Endpoint
+# Telegram Webhook Handler
 # =========================
 @app.route("/webhook", methods=["POST"])
 def telegram_webhook():
@@ -116,14 +116,18 @@ def telegram_webhook():
     )
     reply_text = response.choices[0].message.content
 
-    # Send reply back to Telegram
+    # Send reply to Telegram
     telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(telegram_url, json={
         "chat_id": chat_id,
         "text": reply_text
     })
 
+    return "OK", 200  # ✅ Important: Always return 200 to Telegram
+
+# =========================
+# Run the app
+# =========================
 if __name__ == "__main__":
-    # Keep host open for Render, fallback port 5000 for local
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
