@@ -17,6 +17,10 @@ os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
 app = Flask(__name__)
 
+@app.before_request
+def log_request_info():
+    app.logger.info(f"Incoming {request.method} request to {request.path}")
+    
 @app.route("/", methods=["GET", "POST"])
 def index():
     return render_template("index.html")
