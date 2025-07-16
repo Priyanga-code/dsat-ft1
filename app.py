@@ -3,7 +3,7 @@ import joblib
 from groq import Groq
 import os
 
-# Set API key for Groq
+# ✅ Load Groq API key from environment
 os.environ['GROQ_API_KEY'] = os.getenv("groq")
 
 app = Flask(__name__)
@@ -17,6 +17,9 @@ def main():
     q = request.form.get("q")
     return render_template("main.html")
 
+# =========================
+# LLAMA Routes
+# =========================
 @app.route("/llama", methods=["GET", "POST"])
 def llama():
     return render_template("llama.html")
@@ -27,12 +30,30 @@ def llama_reply():
     client = Groq()
     completion = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        messages=[
-            {"role": "user", "content": q}
-        ]
+        messages=[{"role": "user", "content": q}]
     )
     return render_template("llama_reply.html", r=completion.choices[0].message.content)
 
+# =========================
+# DeepSeek Routes
+# =========================
+@app.route("/deepseek", methods=["GET", "POST"])
+def deepseek():
+    return render_template("deepseek.html")
+
+@app.route("/deepseek_reply", methods=["GET", "POST"])
+def deepseek_reply():
+    user_prompt = request.form.get("prompt")
+    client = Groq()
+    completion_ds = client.chat.completions.create(
+        model="deepseek-r1-distill-llama-70b",
+        messages=[{"role": "user", "content": user_prompt}]
+    )
+    return render_template("deepseek_reply.html", result=completion_ds.choices[0].message.content)
+
+# =========================
+# DBS Prediction Routes
+# =========================
 @app.route("/dbs", methods=["GET", "POST"])
 def dbs():
     return render_template("dbs.html")
@@ -44,21 +65,16 @@ def prediction():
     pred = model.predict([[q]])
     return render_template("prediction.html", r=pred)
 
-@app.route("/deepseek", methods=["GET", "POST"])
-def deepseek():
-    return render_template("deepseek.html")
-
-@app.route("/deepseek_reply", methods=["GET", "POST"])
-def deepseek_reply():
-    q = request.form.get("q")
-    client = Groq()
-    completion_ds = client.chat.completions.create(
-        model="deepseek-r1-distill-llama-70b",
-        messages=[
-            {"role": "user", "content": q}
-        ]
-    )
-    return render_template("deepseek_reply.html", r=completion_ds.choices[0].message.content)
+# =========================
+# Telegram Route
+# =========================
+@app.route("/telegram", methods=["GET", "POST"])
+def telegram():
+    # Replace with your actual bot username
+    bot_link = "https://t.me/dsai_trial_bot"
+    return render_template("telegram.html", bot_link=bot_link)
 
 if __name__ == "__main__":
-    app.run()
+    # Keep host open for Render, fallback port 5000 for local
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
