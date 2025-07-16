@@ -5,14 +5,17 @@ import os
 import requests
 import logging
 
-# ✅ Load environment variables
-os.environ['GROQ_API_KEY'] = os.getenv("groq")
+# Setup logging for debug
+logging.basicConfig(level=logging.DEBUG)
+
+# Load environment variables
+GROQ_API_KEY = os.getenv("groq")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-app = Flask(__name__)
+# Set GROQ_API_KEY env var for groq client internally
+os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
-# Set logger level to INFO so we can see debug info in console
-app.logger.setLevel(logging.INFO)
+app = Flask(__name__)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -23,9 +26,7 @@ def main():
     q = request.form.get("q")
     return render_template("main.html")
 
-# =========================
 # LLAMA Routes
-# =========================
 @app.route("/llama", methods=["GET", "POST"])
 def llama():
     return render_template("llama.html")
@@ -40,9 +41,7 @@ def llama_reply():
     )
     return render_template("llama_reply.html", r=completion.choices[0].message.content)
 
-# =========================
 # DeepSeek Routes
-# =========================
 @app.route("/deepseek", methods=["GET", "POST"])
 def deepseek():
     return render_template("deepseek.html")
@@ -57,9 +56,7 @@ def deepseek_reply():
     )
     return render_template("deepseek_reply.html", result=completion_ds.choices[0].message.content)
 
-# =========================
 # DBS Prediction Routes
-# =========================
 @app.route("/dbs", methods=["GET", "POST"])
 def dbs():
     return render_template("dbs.html")
@@ -71,20 +68,16 @@ def prediction():
     pred = model.predict([[q]])
     return render_template("prediction.html", r=pred)
 
-# =========================
 # Telegram Info Page
-# =========================
 @app.route("/telegram", methods=["GET"])
 def telegram_info():
     bot_link = "https://t.me/dsai_trial_bot"
     return render_template("telegram.html", bot_link=bot_link)
 
-# =========================
 # Telegram Webhook Setup
-# =========================
 @app.route("/setup_webhook", methods=["GET"])
 def setup_webhook():
-    domain_url = 'https://dsat-ft1-z7w5.onrender.com'
+    domain_url = 'https://dsat-ft1-z7w5.onrender.com'  # Replace with your domain
     delete_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook"
     set_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook?url={domain_url}/webhook"
 
@@ -96,56 +89,48 @@ def setup_webhook():
     if response.status_code == 200:
         status = "✅ Telegram bot is connected. Try messaging the bot."
     else:
-        status = "❌ Failed to connect the Telegram bot."
+        status = f"❌ Failed to connect the Telegram bot. Response: {response.text}"
 
     return render_template("telegram.html", status=status)
 
-# =========================
-# Telegram Webhook Handler with logging
-# =========================
-@app.route("/webhook", methods=["GET", "POST"])
+# Telegram Webhook Handler
+@app.route("/webhook", methods=["POST", "GET"])
 def telegram_webhook():
     if request.method == "GET":
         return "Telegram webhook endpoint. Use POST to send updates.", 200
 
     data = request.get_json()
-    app.logger.info(f"Received webhook data: {data}")
+    app.logger.debug(f"Webhook data received: {data}")
 
     if not data or "message" not in data:
-        app.logger.warning("No valid data or no message field in webhook payload")
+        app.logger.error("Invalid data received in webhook")
         return "No valid data", 400
 
     chat_id = data["message"]["chat"]["id"]
     user_text = data["message"].get("text", "")
 
-    if not user_text:
-        app.logger.info("Received message with no text content")
-        return "No text message", 200
+    app.logger.info(f"Message from chat_id {chat_id}: {user_text}")
 
     client = Groq()
-    response = client.chat.completions.create(
-        model="deepseek-r1-distill-llama-70b",
-        messages=[{"role": "user", "content": user_text}]
-    )
-    reply_text = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-r1-distill-llama-70b",
+            messages=[{"role": "user", "content": user_text}]
+        )
+        reply_text = response.choices[0].message.content
+        app.logger.info(f"Replying with: {reply_text}")
+    except Exception as e:
+        app.logger.error(f"Error from Groq API: {e}")
+        reply_text = "Sorry, something went wrong with the AI response."
 
     telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    resp = requests.post(telegram_url, json={
+    requests.post(telegram_url, json={
         "chat_id": chat_id,
         "text": reply_text
     })
 
-    if resp.ok:
-        app.logger.info(f"Sent reply to chat_id {chat_id}")
-    else:
-        app.logger.error(f"Failed to send reply to chat_id {chat_id}: {resp.status_code} {resp.text}")
-
     return "OK", 200
 
-
-# =========================
-# Run the app
-# =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
