@@ -9,8 +9,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Load environment variables
-GROQ_API_KEY = os.getenv("groq")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GROQ_API_KEY = os.getenv('groq')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # Set GROQ_API_KEY env var for groq client internally
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
